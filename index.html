@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ELA Rotation Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F3EC; --ink:#262A24; --ink-soft:#5B5F55;
+    --pine:#2F4A3D; --gold:#C89B3C; --clay:#EDE7D8; --clay-line:#DAD2BC;
+    --white:#FFFDF9; --rust:#B5502E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
+  .topline{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+  .brand{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--pine);}
+  .brand span{color:var(--gold);}
+  .subhead{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--ink-soft);}
+  .navbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px;}
+  button.navbtn{background:var(--white);border:1px solid var(--clay-line);color:var(--pine);padding:8px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+  button.navbtn:hover{background:var(--clay);}
+  #dateInput{font-family:'IBM Plex Mono',monospace;font-size:14px;border:1px solid var(--clay-line);border-radius:7px;padding:7px 10px;background:var(--white);color:var(--ink);}
+  .hero{display:flex;gap:26px;align-items:center;background:var(--pine);border-radius:16px;padding:24px 26px;color:var(--white);margin-bottom:22px;flex-wrap:wrap;}
+  .hero-date{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#CFE0D6;margin-bottom:4px;}
+  .hero-daylabel{font-family:'Fraunces',serif;font-size:32px;font-weight:600;margin-bottom:2px;}
+  .hero-status{font-size:13px;color:#DCE9E1;}
+  .grid-table{width:100%;border-collapse:collapse;margin-bottom:24px;background:var(--white);border-radius:12px;overflow:hidden;border:1px solid var(--clay-line);}
+  .grid-table th{background:var(--pine);color:var(--white);font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:10px 6px;text-align:center;}
+  .grid-table td{padding:12px 6px;text-align:center;border-top:1px solid var(--clay-line);font-family:'IBM Plex Mono',monospace;font-size:12px;}
+  .grid-table td.mine{background:#FBEFC9;font-weight:600;color:#54430F;}
+  .grid-table td .letter{font-family:'Fraunces',serif;font-size:18px;display:block;color:var(--pine);}
+  .grid-table td.mine .letter{color:#54430F;}
+  .section{background:var(--white);border:1px solid var(--clay-line);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
+  .section h3{margin:0 0 8px;font-family:'Fraunces',serif;font-size:16px;color:var(--pine);}
+  .section .content{font-size:14px;line-height:1.5;white-space:pre-wrap;min-height:1.2em;}
+  .section .content.empty{color:var(--ink-soft);font-style:italic;}
+  .tweakgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .tweak{background:var(--clay);border-radius:8px;padding:8px 10px;font-size:13px;}
+  .tweak b{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--ink-soft);display:block;margin-bottom:3px;}
+  .closed-msg{background:var(--clay);border:1px dashed var(--clay-line);border-radius:12px;padding:24px;text-align:center;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  .footnote{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);margin-top:20px;text-align:center;}
+  .loading{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);padding:40px 0;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <div class="brand">Rotation <span>Planner</span></div>
+    <div class="subhead">6th Grade ELA — read-only view, synced from Google Sheets</div>
+  </div>
+
+  <div class="navbar">
+    <button class="navbtn" id="prevBtn">← Prev</button>
+    <button class="navbtn" id="todayBtn">Today</button>
+    <button class="navbtn" id="nextBtn">Next →</button>
+    <input type="date" id="dateInput">
+  </div>
+
+  <div id="app"><div class="loading">Loading planner…</div></div>
+  <div class="footnote">Data source: daily_planner.csv — edit lesson content in Google Sheets, it syncs here automatically.</div>
+</div>
+
+<script>
+const CSV_PATH = 'daily_planner.csv';
+
+// Columns, by fixed position (matches the Daily Planner tab layout)
+const COL = {
+  date:0, weekday:1, rotationDay:2, studyHallB:3, elaC:4, elaF:5, elaG:6, elaH:7,
+  advisoryActivity:8, essentialQ:9, learningGoal:10, warmUp:11, directInstruction:12,
+  engage:13, tweakC:14, tweakF:15, tweakG:16, tweakH:17, studyHallNotes:18, advisoryNotes:19
+};
+
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i=0; i<text.length; i++){
+    const c = text[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (text[i+1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else { field += c; }
+    } else {
+      if (c === '"'){ inQuotes = true; }
+      else if (c === ','){ row.push(field); field=''; }
+      else if (c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if (c === '\r'){ /* skip */ }
+      else { field += c; }
+    }
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function isoFromCell(cell){
+  // Sheets exports dates like "8/18/2026" typically
+  const d = new Date(cell);
+  if (isNaN(d)) return null;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+let byDate = {};
+let current = new Date();
+
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function addDays(d,n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function fmtDate(d){ return d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'}); }
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function contentBlock(title, value){
+  const v = (value||'').trim();
+  return `<div class="section"><h3>${title}</h3><div class="content ${v?'':'empty'}">${v ? escapeHtml(v) : 'Nothing entered yet.'}</div></div>`;
+}
+
+function render(){
+  const key = iso(current);
+  document.getElementById('dateInput').value = key;
+  const app = document.getElementById('app');
+  const row = byDate[key];
+
+  if (!row){
+    app.innerHTML = `<div class="hero"><div><div class="hero-date">${fmtDate(current)}</div>
+      <div class="hero-daylabel">Weekend / Not tracked</div>
+      <div class="hero-status">No data for this date.</div></div></div>`;
+    return;
+  }
+
+  const rot = row[COL.rotationDay];
+  const isClosure = !rot || /no school/i.test(rot);
+
+  let html = `<div class="hero">
+    <div><div class="hero-date">${fmtDate(current)}</div>
+    <div class="hero-daylabel">${isClosure ? 'No School' : 'Day ' + rot}</div>
+    <div class="hero-status">${isClosure ? 'No periods scheduled.' : 'Rotation day ' + rot + ' of 8'}</div></div>
+  </div>`;
+
+  if (isClosure){
+    html += `<div class="closed-msg">No periods scheduled today.</div>`;
+  } else {
+    html += `<table class="grid-table"><tr>
+      <th>Study Hall (B)</th><th>ELA - C</th><th>ELA - F</th><th>ELA - G</th><th>ELA - H</th><th>Advisory / CT</th>
+      </tr><tr>
+      ${[COL.studyHallB, COL.elaC, COL.elaF, COL.elaG, COL.elaH].map(ci=>{
+        const val = row[ci] || '—';
+        const mine = val !== '—' && val !== '-';
+        return `<td class="${mine?'mine':''}"><span class="letter">${escapeHtml(val)}</span></td>`;
+      }).join('')}
+      <td class="mine"><span class="letter">${escapeHtml(row[COL.advisoryActivity]||'')}</span></td>
+      </tr></table>`;
+
+    html += contentBlock('Essential Question', row[COL.essentialQ]);
+    html += contentBlock('Learning Goal — I can...', row[COL.learningGoal]);
+    html += contentBlock('Warm-Up (5 min)', row[COL.warmUp]);
+    html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction]);
+    html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage]);
+
+    const tweaks = [['C', row[COL.tweakC]], ['F', row[COL.tweakF]], ['G', row[COL.tweakG]], ['H', row[COL.tweakH]]]
+      .filter(t => t[1] && t[1].trim());
+    if (tweaks.length){
+      html += `<div class="section"><h3>Section tweaks</h3><div class="tweakgrid">`;
+      tweaks.forEach(t=>{
+        html += `<div class="tweak"><b>Carrier ${t[0]}</b>${escapeHtml(t[1])}</div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    if ((row[COL.studyHallNotes]||'').trim()) html += contentBlock('Study Hall notes', row[COL.studyHallNotes]);
+    if ((row[COL.advisoryNotes]||'').trim()) html += contentBlock('Advisory / CT notes', row[COL.advisoryNotes]);
+  }
+
+  app.innerHTML = html;
+}
+
+document.getElementById('prevBtn').addEventListener('click', ()=>{ current = addDays(current,-1); render(); });
+document.getElementById('nextBtn').addEventListener('click', ()=>{ current = addDays(current,1); render(); });
+document.getElementById('todayBtn').addEventListener('click', ()=>{ current = new Date(); render(); });
+document.getElementById('dateInput').addEventListener('change', (e)=>{
+  const [y,m,d] = e.target.value.split('-').map(Number);
+  current = new Date(y, m-1, d);
+  render();
+});
+
+fetch(CSV_PATH).then(r=>{
+  if (!r.ok) throw new Error('Could not load ' + CSV_PATH);
+  return r.text();
+}).then(text=>{
+  const rows = parseCSV(text);
+  rows.shift(); // header row
+  rows.forEach(r=>{
+    if (!r[COL.date]) return;
+    const key = isoFromCell(r[COL.date]);
+    if (key) byDate[key] = r;
+  });
+  render();
+}).catch(err=>{
+  document.getElementById('app').innerHTML = `<div class="closed-msg">Couldn't load the planner data (${escapeHtml(err.message)}). Make sure daily_planner.csv is in the same repo as this page.</div>`;
+});
+</script>
+</body>
+</html>
