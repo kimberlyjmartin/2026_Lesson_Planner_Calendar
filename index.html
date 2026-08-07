@@ -68,8 +68,9 @@ const CSV_PATH = 'daily_planner.csv';
 // Columns, by fixed position (matches the Daily Planner tab layout)
 const COL = {
   date:0, weekday:1, rotationDay:2, studyHallB:3, elaC:4, elaF:5, elaG:6, elaH:7,
-  advisoryActivity:8, essentialQ:9, learningGoal:10, warmUp:11, directInstruction:12,
-  engage:13, tweakC:14, tweakF:15, tweakG:16, tweakH:17, studyHallNotes:18, advisoryNotes:19
+  advisoryActivity:8, homeworkDue:9, essentialQ:10, learningGoal:11, warmUp:12,
+  learn1:13, engage1:14, learn2:15, engage2:16, closure:17, homeworkAssigned:18,
+  tweakC:19, tweakF:20, tweakG:21, tweakH:22, studyHallNotes:23, advisoryNotes:24
 };
 
 function parseCSV(text){
@@ -150,11 +151,16 @@ function render(){
       <td class="mine"><span class="letter">${escapeHtml(row[COL.advisoryActivity]||'')}</span></td>
       </tr></table>`;
 
-    html += contentBlock('Essential Question', row[COL.essentialQ]);
+   html += contentBlock('Essential Question', row[COL.essentialQ]);
     html += contentBlock('Learning Goal — I can...', row[COL.learningGoal]);
     html += contentBlock('Warm-Up (5 min)', row[COL.warmUp]);
-    html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction]);
-    html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage]);
+    html += contentBlock('Homework Due Today', row[COL.homeworkDue]);
+    html += contentBlock('LEARN #1 — Direct Instruction', row[COL.learn1]);
+    html += contentBlock('ENGAGE #1 — Practice / Assignment', row[COL.engage1]);
+    html += contentBlock('LEARN #2 — Direct Instruction', row[COL.learn2]);
+    html += contentBlock('ENGAGE #2 — Practice / Assignment', row[COL.engage2]);
+    html += contentBlock('Closure / Reflection', row[COL.closure]);
+    html += contentBlock('Homework Assigned', row[COL.homeworkAssigned]);
 
     const tweaks = [['C', row[COL.tweakC]], ['F', row[COL.tweakF]], ['G', row[COL.tweakG]], ['H', row[COL.tweakH]]]
       .filter(t => t[1] && t[1].trim());
