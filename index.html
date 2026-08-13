@@ -30,6 +30,10 @@
   .grid-table th{background:var(--pine);color:var(--white);font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:10px 6px;text-align:center;}
   .grid-table td{padding:12px 6px;text-align:center;border-top:1px solid var(--clay-line);font-family:'IBM Plex Mono',monospace;font-size:12px;}
   .grid-table td.mine{background:#FBEFC9;font-weight:600;color:#54430F;}
+  .grid-table td.lesson2{background:#F0D3C4;font-weight:600;color:#7A3A1F;position:relative;}
+  .grid-table td .l2tag{display:block;font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.3px;color:#7A3A1F;margin-top:2px;}
+  .lesson-heading{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--pine);margin:18px 0 8px;padding-top:10px;border-top:1px solid var(--clay-line);}
+  .lesson-heading.lesson2{color:var(--rust);}
   .grid-table td .letter{font-family:'Fraunces',serif;font-size:18px;display:block;color:var(--pine);}
   .grid-table td.mine .letter{color:#54430F;}
   .section{background:var(--white);border:1px solid var(--clay-line);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
@@ -68,9 +72,9 @@ const CSV_PATH = 'daily_planner.csv';
 // Columns, by fixed position (matches the Daily Planner tab layout)
 const COL = {
   date:0, weekday:1, rotationDay:2, studyHallB:3, elaC:4, elaF:5, elaG:6, elaH:7,
-  advisoryActivity:8, homeworkDue:9, essentialQ:10, learningGoal:11, warmUp:12,
-  learn1:13, engage1:14, learn2:15, engage2:16, closure:17, homeworkAssigned:18,
-  tweakC:19, tweakF:20, tweakG:21, tweakH:22, studyHallNotes:23, advisoryNotes:24
+  advisoryActivity:8, essentialQ:9, learningGoal:10, warmUp:11, directInstruction:12,
+  engage:13, tweakC:14, tweakF:15, tweakG:16, tweakH:17, studyHallNotes:18, advisoryNotes:19,
+  lesson2AppliesTo:20, essentialQ2:21, learningGoal2:22, warmUp2:23, directInstruction2:24, engage2:25
 };
 
 function parseCSV(text){
@@ -140,27 +144,42 @@ function render(){
   if (isClosure){
     html += `<div class="closed-msg">No periods scheduled today.</div>`;
   } else {
+    const sectionCols = [['B',COL.studyHallB],['C',COL.elaC],['F',COL.elaF],['G',COL.elaG],['H',COL.elaH]];
+    const l2Raw = (row[COL.lesson2AppliesTo]||'').trim();
+    const l2Sections = l2Raw ? l2Raw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
+    const hasLesson2 = l2Sections.length > 0;
+
     html += `<table class="grid-table"><tr>
       <th>Study Hall (B)</th><th>ELA - C</th><th>ELA - F</th><th>ELA - G</th><th>ELA - H</th><th>Advisory / CT</th>
       </tr><tr>
-      ${[COL.studyHallB, COL.elaC, COL.elaF, COL.elaG, COL.elaH].map(ci=>{
+      ${sectionCols.map(([letter, ci])=>{
         const val = row[ci] || '—';
-        const mine = val !== '—' && val !== '-';
-        return `<td class="${mine?'mine':''}"><span class="letter">${escapeHtml(val)}</span></td>`;
+        const meets = val !== '—' && val !== '-';
+        const onL2 = letter !== 'B' && l2Sections.includes(letter);
+        const cls = onL2 ? 'lesson2' : (meets ? 'mine' : '');
+        return `<td class="${cls}"><span class="letter">${escapeHtml(val)}</span>${onL2?'<span class="l2tag">Lesson 2</span>':''}</td>`;
       }).join('')}
       <td class="mine"><span class="letter">${escapeHtml(row[COL.advisoryActivity]||'')}</span></td>
       </tr></table>`;
 
-   html += contentBlock('Essential Question', row[COL.essentialQ]);
+    const l2Label = hasLesson2 ? ` — applies to everyone meeting except ${l2Sections.join(', ')}` : '';
+    if (hasLesson2){
+      html += `<div class="lesson-heading">Lesson 1${l2Label}</div>`;
+    }
+    html += contentBlock('Essential Question', row[COL.essentialQ]);
     html += contentBlock('Learning Goal — I can...', row[COL.learningGoal]);
     html += contentBlock('Warm-Up (5 min)', row[COL.warmUp]);
-    html += contentBlock('Homework Due Today', row[COL.homeworkDue]);
-    html += contentBlock('LEARN #1 — Direct Instruction', row[COL.learn1]);
-    html += contentBlock('ENGAGE #1 — Practice / Assignment', row[COL.engage1]);
-    html += contentBlock('LEARN #2 — Direct Instruction', row[COL.learn2]);
-    html += contentBlock('ENGAGE #2 — Practice / Assignment', row[COL.engage2]);
-    html += contentBlock('Closure / Reflection', row[COL.closure]);
-    html += contentBlock('Homework Assigned', row[COL.homeworkAssigned]);
+    html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction]);
+    html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage]);
+
+    if (hasLesson2){
+      html += `<div class="lesson-heading lesson2">Lesson 2 — applies to ${l2Sections.join(', ')}</div>`;
+      html += contentBlock('Essential Question', row[COL.essentialQ2]);
+      html += contentBlock('Learning Goal — I can...', row[COL.learningGoal2]);
+      html += contentBlock('Warm-Up (5 min)', row[COL.warmUp2]);
+      html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction2]);
+      html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage2]);
+    }
 
     const tweaks = [['C', row[COL.tweakC]], ['F', row[COL.tweakF]], ['G', row[COL.tweakG]], ['H', row[COL.tweakH]]]
       .filter(t => t[1] && t[1].trim());
