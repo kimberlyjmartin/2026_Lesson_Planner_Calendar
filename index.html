@@ -240,7 +240,7 @@ document.getElementById('dateInput').addEventListener('change', (e)=>{
   render();
 });
 
-fetch(CSV_PATH).then(r=>{
+fetch(CSV_PATH + '?t=' + Date.now()).then(r=>{
   if (!r.ok) throw new Error('Could not load ' + CSV_PATH);
   return r.text();
 }).then(text=>{
