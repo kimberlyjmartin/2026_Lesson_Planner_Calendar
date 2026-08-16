@@ -34,6 +34,7 @@
   .grid-table td .l2tag{display:block;font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.3px;color:#7A3A1F;margin-top:2px;}
   .lesson-heading{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--pine);margin:18px 0 8px;padding-top:10px;border-top:1px solid var(--clay-line);}
   .lesson-heading.lesson2{color:var(--rust);}
+  .section.track2{border-left:4px solid var(--rust);}
   .grid-table td .letter{font-family:'Fraunces',serif;font-size:18px;display:block;color:var(--pine);}
   .grid-table td.mine .letter{color:#54430F;}
   .section{background:var(--white);border:1px solid var(--clay-line);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
@@ -76,6 +77,45 @@ const COL = {
   engage:13, tweakC:14, tweakF:15, tweakG:16, tweakH:17, studyHallNotes:18, advisoryNotes:19,
   lesson2AppliesTo:20, essentialQ2:21, learningGoal2:22, warmUp2:23, directInstruction2:24, engage2:25
 };
+
+function cleanHeader(h){
+  return (h||'').replace(/\s+/g,' ').trim();
+}
+
+// Figure out which columns are "structural" (drive the schedule grid) by matching
+// header text loosely -- everything else just gets displayed generically, labeled
+// with whatever the sheet actually calls it.
+function buildColumnMap(headerRow){
+  const map = {
+    date: -1, weekday: -1, rotationDay: -1,
+    studyHallB: -1, elaC: -1, elaF: -1, elaG: -1, elaH: -1,
+    advisoryActivity: -1, lesson2AppliesTo: -1,
+    tweaks: {}, // letter -> index
+    others: []  // {index, label}
+  };
+  headerRow.forEach((raw, i) => {
+    const h = cleanHeader(raw);
+    const hl = h.toLowerCase();
+    if (!h) return; // skip blank/stray header columns entirely
+    if (hl === 'date'){ map.date = i; return; }
+    if (hl === 'day' || hl === 'weekday'){ map.weekday = i; return; }
+    if (hl.includes('rotation') && hl.includes('day')){ map.rotationDay = i; return; }
+    if (hl.includes('study hall') && hl.includes('notes')){ map.others.push({index:i,label:h}); return; }
+    if (hl.includes('study hall')){ map.studyHallB = i; return; }
+    if (hl.includes('ela') && /-\s*c$/.test(hl)){ map.elaC = i; return; }
+    if (hl.includes('ela') && /-\s*f$/.test(hl)){ map.elaF = i; return; }
+    if (hl.includes('ela') && /-\s*g$/.test(hl)){ map.elaG = i; return; }
+    if (hl.includes('ela') && /-\s*h$/.test(hl)){ map.elaH = i; return; }
+    if (hl.includes('advisory') && hl.includes('activity')){ map.advisoryActivity = i; return; }
+    if (hl.includes('lesson 2') && hl.includes('applies')){ map.lesson2AppliesTo = i; return; }
+    const tweakMatch = hl.match(/tweak\s*-\s*([cfgh])/);
+    if (tweakMatch){ map.tweaks[tweakMatch[1].toUpperCase()] = i; return; }
+    // Everything else: displayed generically, in sheet order, labeled with its own header
+    map.others.push({index:i, label:h});
+  });
+  return map;
+}
+let COLMAP = null;
 
 function parseCSV(text){
   const rows = [];
@@ -125,27 +165,27 @@ function render(){
   const app = document.getElementById('app');
   const row = byDate[key];
 
-  if (!row){
+  if (!row || !COLMAP){
     app.innerHTML = `<div class="hero"><div><div class="hero-date">${fmtDate(current)}</div>
       <div class="hero-daylabel">Weekend / Not tracked</div>
       <div class="hero-status">No data for this date.</div></div></div>`;
     return;
   }
 
-  const rot = row[COL.rotationDay];
-  const isClosure = !rot || /no school/i.test(rot);
+  const rot = COLMAP.rotationDay >= 0 ? row[COLMAP.rotationDay] : '';
+  const isClosure = !rot || /no school|x day/i.test(rot);
 
   let html = `<div class="hero">
     <div><div class="hero-date">${fmtDate(current)}</div>
-    <div class="hero-daylabel">${isClosure ? 'No School' : 'Day ' + rot}</div>
+    <div class="hero-daylabel">${isClosure ? (rot || 'No School') : 'Day ' + rot}</div>
     <div class="hero-status">${isClosure ? 'No periods scheduled.' : 'Rotation day ' + rot + ' of 8'}</div></div>
   </div>`;
 
   if (isClosure){
     html += `<div class="closed-msg">No periods scheduled today.</div>`;
   } else {
-    const sectionCols = [['B',COL.studyHallB],['C',COL.elaC],['F',COL.elaF],['G',COL.elaG],['H',COL.elaH]];
-    const l2Raw = (row[COL.lesson2AppliesTo]||'').trim();
+    const sectionCols = [['B',COLMAP.studyHallB],['C',COLMAP.elaC],['F',COLMAP.elaF],['G',COLMAP.elaG],['H',COLMAP.elaH]];
+    const l2Raw = COLMAP.lesson2AppliesTo >= 0 ? (row[COLMAP.lesson2AppliesTo]||'').trim() : '';
     const l2Sections = l2Raw ? l2Raw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean) : [];
     const hasLesson2 = l2Sections.length > 0;
 
@@ -153,46 +193,37 @@ function render(){
       <th>Study Hall (B)</th><th>ELA - C</th><th>ELA - F</th><th>ELA - G</th><th>ELA - H</th><th>Advisory / CT</th>
       </tr><tr>
       ${sectionCols.map(([letter, ci])=>{
-        const val = row[ci] || '—';
+        const val = ci >= 0 ? (row[ci] || '—') : '—';
         const meets = val !== '—' && val !== '-';
         const onL2 = letter !== 'B' && l2Sections.includes(letter);
         const cls = onL2 ? 'lesson2' : (meets ? 'mine' : '');
         return `<td class="${cls}"><span class="letter">${escapeHtml(val)}</span>${onL2?'<span class="l2tag">Lesson 2</span>':''}</td>`;
       }).join('')}
-      <td class="mine"><span class="letter">${escapeHtml(row[COL.advisoryActivity]||'')}</span></td>
+      <td class="mine"><span class="letter">${escapeHtml(COLMAP.advisoryActivity>=0 ? (row[COLMAP.advisoryActivity]||'') : '')}</span></td>
       </tr></table>`;
 
-    const l2Label = hasLesson2 ? ` — applies to everyone meeting except ${l2Sections.join(', ')}` : '';
-    if (hasLesson2){
-      html += `<div class="lesson-heading">Lesson 1${l2Label}</div>`;
-    }
-    html += contentBlock('Essential Question', row[COL.essentialQ]);
-    html += contentBlock('Learning Goal — I can...', row[COL.learningGoal]);
-    html += contentBlock('Warm-Up (5 min)', row[COL.warmUp]);
-    html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction]);
-    html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage]);
+    // Everything else the sheet contains, shown in the sheet's own column order,
+    // labeled with the sheet's own header text. Columns with a "2" in the header
+    // (e.g. "Essential Question 2") get a subtle rust accent to flag them as
+    // belonging to a second lesson track.
+    COLMAP.others.forEach(({index, label}) => {
+      const val = (row[index] || '').trim();
+      if (!val) return;
+      const isSecondTrack = /\b2\b|#2/.test(label);
+      html += `<div class="section${isSecondTrack ? ' track2' : ''}"><h3>${escapeHtml(label)}</h3><div class="content">${escapeHtml(val)}</div></div>`;
+    });
 
-    if (hasLesson2){
-      html += `<div class="lesson-heading lesson2">Lesson 2 — applies to ${l2Sections.join(', ')}</div>`;
-      html += contentBlock('Essential Question', row[COL.essentialQ2]);
-      html += contentBlock('Learning Goal — I can...', row[COL.learningGoal2]);
-      html += contentBlock('Warm-Up (5 min)', row[COL.warmUp2]);
-      html += contentBlock('LEARN — Direct Instruction', row[COL.directInstruction2]);
-      html += contentBlock('ENGAGE — Practice / Assignment', row[COL.engage2]);
-    }
-
-    const tweaks = [['C', row[COL.tweakC]], ['F', row[COL.tweakF]], ['G', row[COL.tweakG]], ['H', row[COL.tweakH]]]
-      .filter(t => t[1] && t[1].trim());
-    if (tweaks.length){
+    // Tweak columns (Tweak - C/F/G/H), grouped together if any have content
+    const tweakEntries = Object.entries(COLMAP.tweaks)
+      .map(([letter, idx]) => [letter, (row[idx]||'').trim()])
+      .filter(([,v]) => v);
+    if (tweakEntries.length){
       html += `<div class="section"><h3>Section tweaks</h3><div class="tweakgrid">`;
-      tweaks.forEach(t=>{
-        html += `<div class="tweak"><b>Carrier ${t[0]}</b>${escapeHtml(t[1])}</div>`;
+      tweakEntries.forEach(([letter, val])=>{
+        html += `<div class="tweak"><b>Carrier ${letter}</b>${escapeHtml(val)}</div>`;
       });
       html += `</div></div>`;
     }
-
-    if ((row[COL.studyHallNotes]||'').trim()) html += contentBlock('Study Hall notes', row[COL.studyHallNotes]);
-    if ((row[COL.advisoryNotes]||'').trim()) html += contentBlock('Advisory / CT notes', row[COL.advisoryNotes]);
   }
 
   app.innerHTML = html;
@@ -212,10 +243,11 @@ fetch(CSV_PATH).then(r=>{
   return r.text();
 }).then(text=>{
   const rows = parseCSV(text);
-  rows.shift(); // header row
+  const headerRow = rows.shift(); // header row
+  COLMAP = buildColumnMap(headerRow);
   rows.forEach(r=>{
-    if (!r[COL.date]) return;
-    const key = isoFromCell(r[COL.date]);
+    if (!r[COLMAP.date]) return;
+    const key = isoFromCell(r[COLMAP.date]);
     if (key) byDate[key] = r;
   });
   render();
