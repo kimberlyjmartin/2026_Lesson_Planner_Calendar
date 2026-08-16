@@ -173,15 +173,17 @@ function render(){
   }
 
   const rot = COLMAP.rotationDay >= 0 ? row[COLMAP.rotationDay] : '';
-  const isClosure = !rot || /no school|x day/i.test(rot);
+  const isFullClosure = /no school/i.test(rot);
+  const isNumberedDay = /^\d+$/.test((rot||'').trim());
+  const dayLabel = isFullClosure ? (rot || 'No School') : (isNumberedDay ? ('Day ' + rot) : rot);
 
   let html = `<div class="hero">
     <div><div class="hero-date">${fmtDate(current)}</div>
-    <div class="hero-daylabel">${isClosure ? (rot || 'No School') : 'Day ' + rot}</div>
-    <div class="hero-status">${isClosure ? 'No periods scheduled.' : 'Rotation day ' + rot + ' of 8'}</div></div>
+    <div class="hero-daylabel">${dayLabel}</div>
+    <div class="hero-status">${isFullClosure ? 'No periods scheduled.' : (isNumberedDay ? ('Rotation day ' + rot + ' of 8') : 'Modified schedule — see times below')}</div></div>
   </div>`;
 
-  if (isClosure){
+  if (isFullClosure){
     html += `<div class="closed-msg">No periods scheduled today.</div>`;
   } else {
     const sectionCols = [['B',COLMAP.studyHallB],['C',COLMAP.elaC],['F',COLMAP.elaF],['G',COLMAP.elaG],['H',COLMAP.elaH]];
